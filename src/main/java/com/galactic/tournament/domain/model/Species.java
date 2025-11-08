@@ -16,6 +16,7 @@ public class Species {
         this.victories = victories;
     }
 
+
     public Species(String name, int powerLevel, String specialSkill) {
         this(null, name, powerLevel, specialSkill, 0);
     }

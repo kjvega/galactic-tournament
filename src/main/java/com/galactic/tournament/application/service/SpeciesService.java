@@ -1,18 +1,15 @@
 package com.galactic.tournament.application.service;
 
-import com.galactic.tournament.application.port.in.RegisterSpeciesUseCase;
-import com.galactic.tournament.application.port.in.GetAllSpeciesUseCase;
-import com.galactic.tournament.application.port.in.GetRankingUseCase;
-import com.galactic.tournament.application.port.in.FightSpeciesUseCase;
-import com.galactic.tournament.application.port.out.SpeciesRepository;
-import com.galactic.tournament.application.port.out.BattleResultRepository;
+import com.galactic.tournament.application.dto.SpeciesResponse;
+import com.galactic.tournament.application.mapper.SpeciesResponseMapper;
+import com.galactic.tournament.application.port.in.*;
+import com.galactic.tournament.application.port.out.*;
 import com.galactic.tournament.domain.exception.*;
-import com.galactic.tournament.domain.model.BattleResult;
-import com.galactic.tournament.domain.model.Species;
-import com.galactic.tournament.infrastructure.entity.BattleResultEntity;
-import com.galactic.tournament.infrastructure.entity.SpeciesEntity;
-import com.galactic.tournament.infrastructure.mapper.BattleResultMapper;
-import com.galactic.tournament.infrastructure.mapper.SpeciesMapper;
+import com.galactic.tournament.domain.model.*;
+import com.galactic.tournament.domain.service.BattleRules;
+import com.galactic.tournament.application.dto.SpeciesRequest;
+import com.galactic.tournament.infrastructure.entity.*;
+import com.galactic.tournament.infrastructure.mapper.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,83 +24,80 @@ public class SpeciesService implements
 
     private final SpeciesRepository speciesRepository;
     private final BattleResultRepository battleResultRepository;
+    private final BattleRules battleRules;
 
-    public SpeciesService(SpeciesRepository speciesRepository, BattleResultRepository battleResultRepository) {
+    public SpeciesService(SpeciesRepository speciesRepository,
+                          BattleResultRepository battleResultRepository, BattleRules battleRules) {
         this.speciesRepository = speciesRepository;
         this.battleResultRepository = battleResultRepository;
+        this.battleRules = battleRules;
     }
 
     @Override
-    public Species register(Species species) {
+    public SpeciesResponse register(SpeciesRequest speciesRequest) {
+        Species species = new Species(
+                speciesRequest.getName(),
+                speciesRequest.getPowerLevel(),
+                speciesRequest.getSpecialSkill()
+        );
         SpeciesEntity entity = SpeciesMapper.toEntity(species);
-
         speciesRepository.findByName(entity.getName())
                 .ifPresent(e -> { throw new SpeciesAlreadyExistsException(entity.getName()); });
-
         SpeciesEntity saved = speciesRepository.save(entity);
-        return SpeciesMapper.toDomain(saved);
+        Species domainSpecies = SpeciesMapper.toDomain(saved);
+        return SpeciesResponseMapper.toResponse(domainSpecies);
     }
 
     @Override
-    public List<Species> getAll() {
-        return speciesRepository.findAll()
+    public List<SpeciesResponse> getAll() {
+        List<Species> domainListSpecies = speciesRepository.findAll()
                 .stream()
                 .map(SpeciesMapper::toDomain)
                 .toList();
+        return SpeciesResponseMapper.toResponseList(domainListSpecies);
     }
 
     @Override
-    public List<Species> getRanking() {
-        return speciesRepository.findAllOrderedByVictories()
+    public List<SpeciesResponse> getRanking() {
+        List<Species> domainListSpecies = speciesRepository.findAllOrderedByVictories()
                 .stream()
                 .map(SpeciesMapper::toDomain)
                 .toList();
+        return  SpeciesResponseMapper.toResponseList(domainListSpecies);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Species fight(Long firstSpeciesId, Long secondSpeciesId) {
-        SpeciesEntity first = speciesRepository.findById(firstSpeciesId)
+    public SpeciesResponse fight(Long firstSpeciesId, Long secondSpeciesId) {
+        SpeciesEntity firstEntity = speciesRepository.findById(firstSpeciesId)
                 .orElseThrow(() -> new SpeciesNotFoundException(firstSpeciesId));
-        SpeciesEntity second = speciesRepository.findById(secondSpeciesId)
+        SpeciesEntity secondEntity = speciesRepository.findById(secondSpeciesId)
                 .orElseThrow(() -> new SpeciesNotFoundException(secondSpeciesId));
 
-        SpeciesEntity winner = determineWinner(first, second);
+        Species firstDomain = SpeciesMapper.toDomain(firstEntity);
+        Species secondDomain = SpeciesMapper.toDomain(secondEntity);
+
+        Species winnerDomain = battleRules.determineWinner(firstDomain, secondDomain);
 
         try {
-            winner.setVictories(winner.getVictories() + 1);
-            speciesRepository.save(winner);
+            SpeciesEntity winnerEntity = SpeciesMapper.toEntity(winnerDomain);
+            winnerEntity.setId(winnerDomain.getId());
+            winnerEntity.setVictories(winnerEntity.getVictories() + 1);
+            speciesRepository.save(winnerEntity);
 
             BattleResult result = new BattleResult(
-                    winner.getId(),
-                    (winner.equals(first)) ? second.getId() : first.getId(),
-                    winner.getName(),
-                    (winner.equals(first)) ? second.getName() : first.getName(),
+                    winnerEntity.getId(),
+                    (winnerEntity.getId().equals(firstEntity.getId())) ? secondEntity.getId() : firstEntity.getId(),
+                    winnerEntity.getName(),
+                    (winnerEntity.getId().equals(firstEntity.getId())) ? secondEntity.getName() : firstEntity.getName(),
                     "WINNER"
             );
-
-            BattleResultEntity resultEntity = BattleResultMapper.toEntity(result);
-            battleResultRepository.save(resultEntity);
-
-            return SpeciesMapper.toDomain(winner);
+            battleResultRepository.save(BattleMapper.toEntity(result));
+             Species domainSpecies = SpeciesMapper.toDomain(winnerEntity);
+            return SpeciesResponseMapper.toResponse(domainSpecies);
 
         } catch (Exception ex) {
             throw new BattlePersistenceException("Failed to persist battle result. Transaction rolled back.", ex);
         }
-    }
-
-    private SpeciesEntity determineWinner(SpeciesEntity first, SpeciesEntity second) {
-        if (first.getPowerLevel() > second.getPowerLevel()) {
-            return first;
-        } else if (first.getPowerLevel() < second.getPowerLevel()) {
-            return second;
-        }
-
-        int comparison = first.getName().compareToIgnoreCase(second.getName());
-        if (comparison == 0) {
-            throw new TotalTieException(first.getName());
-        }
-
-        return (comparison < 0) ? first : second;
     }
 }

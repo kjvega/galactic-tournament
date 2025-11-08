@@ -3,7 +3,7 @@ package com.galactic.tournament.infrastructure.mapper;
 import com.galactic.tournament.domain.model.BattleResult;
 import com.galactic.tournament.infrastructure.entity.BattleResultEntity;
 
-public class BattleResultMapper {
+public class BattleMapper {
 
     public static BattleResultEntity toEntity(BattleResult battleResult) {
         return new BattleResultEntity(

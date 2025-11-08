@@ -1,7 +1,8 @@
 package com.galactic.tournament.application.port.in;
 
-import com.galactic.tournament.domain.model.Species;
+import com.galactic.tournament.application.dto.SpeciesResponse;
+import com.galactic.tournament.application.dto.SpeciesRequest;
 
 public interface RegisterSpeciesUseCase {
-    Species register(Species species);
+    SpeciesResponse register(SpeciesRequest species);
 }
