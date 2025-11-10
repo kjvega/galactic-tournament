@@ -1,6 +1,8 @@
 package com.galactic.tournament.application.service;
 
+import com.galactic.tournament.application.dto.BattleResultResponse;
 import com.galactic.tournament.application.dto.SpeciesResponse;
+import com.galactic.tournament.application.mapper.BattleResultResponseMapper;
 import com.galactic.tournament.application.mapper.SpeciesResponseMapper;
 import com.galactic.tournament.application.port.in.*;
 import com.galactic.tournament.application.port.out.*;
@@ -20,7 +22,9 @@ public class SpeciesService implements
         RegisterSpeciesUseCase,
         GetAllSpeciesUseCase,
         GetRankingUseCase,
-        FightSpeciesUseCase {
+        FightSpeciesUseCase,
+        GetBattleResultsUseCase
+{
 
     private final SpeciesRepository speciesRepository;
     private final BattleResultRepository battleResultRepository;
@@ -31,6 +35,32 @@ public class SpeciesService implements
         this.speciesRepository = speciesRepository;
         this.battleResultRepository = battleResultRepository;
         this.battleRules = battleRules;
+    }
+
+    @Override
+    public List<SpeciesResponse> getAll() {
+        List<Species> domainListSpecies = speciesRepository.findAll()
+                .stream()
+                .map(SpeciesMapper::toDomain)
+                .toList();
+        return SpeciesResponseMapper.toResponseList(domainListSpecies);
+    }
+    @Override
+    public List<BattleResultResponse> getBattleResults() {
+        List<BattleResult> domainListBattleResult = battleResultRepository.findAll()
+                .stream()
+                .map(BattleMapper::toDomain)
+                .toList();
+        return BattleResultResponseMapper.toResponseList(domainListBattleResult);
+    }
+
+    @Override
+    public List<SpeciesResponse> getRanking() {
+        List<Species> domainListSpecies = speciesRepository.findAllOrderedByVictories()
+                .stream()
+                .map(SpeciesMapper::toDomain)
+                .toList();
+        return  SpeciesResponseMapper.toResponseList(domainListSpecies);
     }
 
     @Override
@@ -48,23 +78,7 @@ public class SpeciesService implements
         return SpeciesResponseMapper.toResponse(domainSpecies);
     }
 
-    @Override
-    public List<SpeciesResponse> getAll() {
-        List<Species> domainListSpecies = speciesRepository.findAll()
-                .stream()
-                .map(SpeciesMapper::toDomain)
-                .toList();
-        return SpeciesResponseMapper.toResponseList(domainListSpecies);
-    }
 
-    @Override
-    public List<SpeciesResponse> getRanking() {
-        List<Species> domainListSpecies = speciesRepository.findAllOrderedByVictories()
-                .stream()
-                .map(SpeciesMapper::toDomain)
-                .toList();
-        return  SpeciesResponseMapper.toResponseList(domainListSpecies);
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)

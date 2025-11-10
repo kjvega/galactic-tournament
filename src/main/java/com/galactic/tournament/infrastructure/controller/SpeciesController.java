@@ -1,5 +1,6 @@
 package com.galactic.tournament.infrastructure.controller;
 
+import com.galactic.tournament.application.dto.BattleResultResponse;
 import com.galactic.tournament.application.dto.SpeciesResponse;
 import com.galactic.tournament.application.port.in.*;
 import com.galactic.tournament.domain.model.Species;
@@ -16,20 +17,18 @@ public class SpeciesController {
     private final GetAllSpeciesUseCase listUseCase;
     private final GetRankingUseCase rankingUseCase;
     private final FightSpeciesUseCase fightUseCase;
+    private final GetBattleResultsUseCase getBattleResultsUseCase;
+
 
     public SpeciesController(RegisterSpeciesUseCase registerUseCase,
                              GetAllSpeciesUseCase listUseCase,
                              GetRankingUseCase rankingUseCase,
-                             FightSpeciesUseCase fightUseCase) {
+                             FightSpeciesUseCase fightUseCase, GetBattleResultsUseCase getBattleResultsUseCase) {
         this.registerUseCase = registerUseCase;
         this.listUseCase = listUseCase;
         this.rankingUseCase = rankingUseCase;
         this.fightUseCase = fightUseCase;
-    }
-
-    @PostMapping
-    public SpeciesResponse register(@RequestBody SpeciesRequest speciesRequest) {
-        return registerUseCase.register(speciesRequest);
+        this.getBattleResultsUseCase = getBattleResultsUseCase;
     }
 
     @GetMapping
@@ -37,10 +36,22 @@ public class SpeciesController {
         return listUseCase.getAll();
     }
 
+    @GetMapping("/battles")
+    public List<BattleResultResponse> getBattleResults() {
+        return getBattleResultsUseCase.getBattleResults();
+    }
+
+
     @GetMapping("/ranking")
     public List<SpeciesResponse> getRanking() {
         return rankingUseCase.getRanking();
     }
+
+    @PostMapping
+    public SpeciesResponse register(@RequestBody SpeciesRequest speciesRequest) {
+        return registerUseCase.register(speciesRequest);
+    }
+
 
     @PostMapping("/fight")
     public SpeciesResponse fight(@RequestParam Long firstId, @RequestParam Long secondId) {
